@@ -17,11 +17,19 @@ fps = 60
 background :: Color
 background = black
 
+-- Global values
+ballRadius, wallHeight :: Float
+ballRadius = 10
+wallHeight = 10
+
+-- Essential data type
+type Location = (Float, Float)
+
 -- Data structure
 data PingPong = Game
     {
-        ballLoc :: (Float, Float),  -- ball location
-        ballVel :: (Float, Float),  -- ball velocity
+        ballLocation :: Location,   -- ball location
+        ballVelocity :: Location,   -- ball velocity
         player1 :: Float,           -- left bar height
         player2 :: Float            -- right bar height
     }
@@ -32,8 +40,7 @@ design :: PingPong -> Picture
 design state = pictures[ball, walls, leftBar $ player1 state, rightBar $ player2 state] -- itens
     where
         -- Ball
-        ball = uncurry translate (ballLoc state) $ color ballColor $ circleSolid ballRadius
-        ballRadius = 10
+        ball = uncurry translate (ballLocation state) $ color ballColor $ circleSolid ballRadius
         ballColor = red
 
         -- Bottom and top walls
@@ -41,7 +48,6 @@ design state = pictures[ball, walls, leftBar $ player1 state, rightBar $ player2
         wall wallOffset = translate 0 wallOffset $ color wallColor $ rectangleSolid wallWidth wallHeight
         wallColor = greyN 0.5
         wallWidth = fromIntegral width
-        wallHeight = 10
         
         walls = pictures[wall position, wall (-position)]
         position = (fromIntegral height / 2) - (wallHeight / 2)
@@ -58,23 +64,47 @@ design state = pictures[ball, walls, leftBar $ player1 state, rightBar $ player2
 initialState :: PingPong
 initialState = Game
     {
-        ballLoc = (0, 0),
-        ballVel = (60, 15),
+        ballLocation = (0, 0),
+        ballVelocity = (30, 100),
         player1 = 0,
         player2 = 0
     }
 
 -- Ball animation
 moveBall :: Float -> PingPong -> PingPong
-moveBall seconds state = state {ballLoc = (x', y')}
+moveBall seconds state = state {ballLocation = (x', y')}
     where
         -- Current location and velocity
-        (x, y) = ballLoc state
-        (vx, vy) = ballVel state
+        (x, y) = ballLocation state
+        (vx, vy) = ballVelocity state
 
         -- New location and velocity
         x' = x + vx * seconds
         y' = y + vy * seconds
+
+-- Wall collision (top or bottom)
+wallCollision :: Location -> Float -> Bool
+wallCollision (_, y) radius = topCollision || bottomCollision
+    where
+        -- Is there collision?
+        topCollision = y - radius <= (-fromIntegral height / 2) + wallHeight
+        bottomCollision = y + radius >= (fromIntegral height / 2) - wallHeight
+
+-- Wall bounce
+wallBounce :: PingPong -> PingPong
+wallBounce state = state { ballVelocity = (vx, vy')}
+    where
+        -- Current velocity
+        (vx, vy) = ballVelocity state
+
+        -- New velocity
+        vy' = if wallCollision (ballLocation state) ballRadius
+            then
+                -- Velocity change direction
+                -vy * 1.5
+            else
+                -- Old velocity
+                vy
 
 -- Define window
 window :: Display
@@ -86,4 +116,4 @@ main = simulate window background fps initialState design update
 
 -- Update window
 update :: ViewPort -> Float -> PingPong -> PingPong
-update _ = moveBall
+update _ seconds = wallBounce . moveBall seconds
