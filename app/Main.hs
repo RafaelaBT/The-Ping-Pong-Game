@@ -4,7 +4,7 @@ module Main (main, PingPong, design, initialState) where
 import Graphics.Gloss
 import Graphics.Gloss.Data.ViewPort
 
--- Window data
+-- Game properties
 name :: String
 name = "The Ping-Pong Game"
 
@@ -14,15 +14,18 @@ height = 800
 offset = 10
 fps = 60
 
-background :: Color
-background = black
-
--- Global values
-ballRadius, wallHeight :: Float
+barWidth, barHeight, barPosition, ballRadius :: Float
+barWidth = 10
+barHeight = 150
+barPosition = 380
 ballRadius = 10
-wallHeight = 10
 
--- Essential data type
+background,barColor, ballColor:: Color
+background = black
+barColor = green
+ballColor = red
+
+-- Location data type
 type Location = (Float, Float)
 
 -- Data structure
@@ -37,35 +40,30 @@ data PingPong = Game
 
 -- Design
 design :: PingPong -> Picture
-design state = pictures[ball, walls, leftBar $ player1 state, rightBar $ player2 state] -- itens
+design state = pictures[ball, walls, rightBar $ player1 state, leftBar $ player2 state] -- itens
     where
         -- Ball
         ball = uncurry translate (ballLocation state) $ color ballColor $ circleSolid ballRadius
-        ballColor = red
 
         -- Bottom and top walls
         wall :: Float -> Picture
-        wall wallOffset = translate 0 wallOffset $ color wallColor $ rectangleSolid wallWidth wallHeight
-        wallColor = greyN 0.5
+        wall wallOffset = translate 0 wallOffset $ color background $ rectangleSolid wallWidth 0
         wallWidth = fromIntegral width
-        
+
         walls = pictures[wall position, wall (-position)]
-        position = (fromIntegral height / 2) - (wallHeight / 2)
+        position = (fromIntegral height / 2)
         
         -- Bars
-        leftBar, rightBar :: Float -> Picture
-        leftBar x = translate 380 x $ color barColor $ rectangleSolid barWidth barHeight
-        rightBar y = translate (-380) y $ color barColor $ rectangleSolid barWidth barHeight
-        barColor = green
-        barWidth = 10
-        barHeight = 150
+        rightBar, leftBar :: Float -> Picture
+        rightBar y1 = translate barPosition y1 $ color barColor $ rectangleSolid barWidth barHeight
+        leftBar y2 = translate (-barPosition) y2 $ color barColor $ rectangleSolid barWidth barHeight
 
 -- Initial state
 initialState :: PingPong
 initialState = Game
     {
         ballLocation = (0, 0),
-        ballVelocity = (30, 100),
+        ballVelocity = (50, 50),
         player1 = 0,
         player2 = 0
     }
@@ -83,28 +81,35 @@ moveBall seconds state = state {ballLocation = (x', y')}
         y' = y + vy * seconds
 
 -- Wall collision (top or bottom)
-wallCollision :: Location -> Float -> Bool
-wallCollision (_, y) radius = topCollision || bottomCollision
+wallCollision :: Location -> Bool
+wallCollision (_, y) = topCollision || bottomCollision
     where
-        -- Is there collision?
-        topCollision = y - radius <= (-fromIntegral height / 2) + wallHeight
-        bottomCollision = y + radius >= (fromIntegral height / 2) - wallHeight
+        -- Is there a y collision?
+        topCollision = y + ballRadius >= limHeight
+        bottomCollision = -y + ballRadius >= limHeight
+        limHeight = fromIntegral height / 2
+
+-- Bar collision (right or left)
+barCollision :: Location -> Bool
+barCollision (x, _) = rightCollision || leftCollision
+    where
+        -- Is there a x collision?
+        rightCollision = x + ballRadius >= limWidth
+        leftCollision = -x + ballRadius >= limWidth
+        limWidth = barPosition - (barWidth / 2)
 
 -- Wall bounce
-wallBounce :: PingPong -> PingPong
-wallBounce state = state { ballVelocity = (vx, vy')}
+bounce :: PingPong -> PingPong
+bounce state = state { ballVelocity = (vx', vy')}
     where
         -- Current velocity
         (vx, vy) = ballVelocity state
 
         -- New velocity
-        vy' = if wallCollision (ballLocation state) ballRadius
-            then
-                -- Velocity change direction
-                -vy * 1.5
-            else
-                -- Old velocity
-                vy
+        (vx', vy')
+            | wallCollision (ballLocation state) = (vx, -vy * 1.5)
+            | barCollision (ballLocation state) = (-vx * 1.5, vy)
+            | otherwise = (vx, vy)
 
 -- Define window
 window :: Display
@@ -116,4 +121,4 @@ main = simulate window background fps initialState design update
 
 -- Update window
 update :: ViewPort -> Float -> PingPong -> PingPong
-update _ seconds = wallBounce . moveBall seconds
+update _ seconds = bounce . moveBall seconds
