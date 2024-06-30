@@ -2,7 +2,7 @@ module Main (main, PingPong, design, initialState) where
 
 -- Import libraries
 import Graphics.Gloss
-import Graphics.Gloss.Data.ViewPort
+import Graphics.Gloss.Interface.Pure.Game
 
 -- Game properties
 name :: String
@@ -117,8 +117,13 @@ window = InWindow name (width, height) (offset, offset)
 
 -- Display window
 main :: IO ()
-main = simulate window background fps initialState design update
+main = play window background fps initialState design handleKeys update
 
 -- Update window
-update :: ViewPort -> Float -> PingPong -> PingPong
-update _ seconds = bounce . moveBall seconds
+update :: Float -> PingPong -> PingPong
+update seconds = bounce . moveBall seconds
+
+-- Reset game
+handleKeys :: Event -> PingPong -> PingPong
+handleKeys (EventKey (Char 'r') _ _ _) state = state { ballLocation = (0, 0) }
+handleKeys _ state = state
