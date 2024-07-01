@@ -67,7 +67,7 @@ initialState = Game
         ballVelocity = (50, 50),
         player1 = 0,
         player2 = 0,
-        paused = False
+        paused = True
     }
 
 -- Ball animation
@@ -129,7 +129,7 @@ update seconds state
 
 -- Reset game
 handleKeys :: Event -> PingPong -> PingPong
-handleKeys (EventKey (Char 'r') _ _ _) state = state { ballLocation = (0, 0) }
+handleKeys (EventKey (Char 'r') _ _ _) state = state { ballLocation = (0, 0), paused = True }
 handleKeys (EventKey (Char 'p') _ _ _) state = state { paused = True }
 handleKeys (EventKey (SpecialKey KeySpace) _ _ _) state = state { paused = False }
 handleKeys _ state = state
