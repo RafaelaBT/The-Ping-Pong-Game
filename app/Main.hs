@@ -34,7 +34,8 @@ data PingPong = Game
         ballLocation :: Location,   -- ball location
         ballVelocity :: Location,   -- ball velocity
         player1 :: Float,           -- left bar height
-        player2 :: Float            -- right bar height
+        player2 :: Float,           -- right bar height
+        paused :: Bool
     }
     deriving Show -- print values
 
@@ -65,7 +66,8 @@ initialState = Game
         ballLocation = (0, 0),
         ballVelocity = (50, 50),
         player1 = 0,
-        player2 = 0
+        player2 = 0,
+        paused = False
     }
 
 -- Ball animation
@@ -121,9 +123,13 @@ main = play window background fps initialState design handleKeys update
 
 -- Update window
 update :: Float -> PingPong -> PingPong
-update seconds = bounce . moveBall seconds
+update seconds state
+    | paused state = state
+    | otherwise = bounce $ moveBall seconds state
 
 -- Reset game
 handleKeys :: Event -> PingPong -> PingPong
 handleKeys (EventKey (Char 'r') _ _ _) state = state { ballLocation = (0, 0) }
+handleKeys (EventKey (Char 'p') _ _ _) state = state { paused = True }
+handleKeys (EventKey (SpecialKey KeySpace) _ _ _) state = state { paused = False }
 handleKeys _ state = state
