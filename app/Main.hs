@@ -63,8 +63,8 @@ design state = pictures[ball, walls, rightBar $ player1 state, leftBar $ player2
 initialState :: PingPong
 initialState = Game
     {
-        ballLocation = (0, -85),
-        ballVelocity = (50, 0),
+        ballLocation = (0, 0),
+        ballVelocity = (50, 50),
         player1 = 0,
         player2 = 0,
         paused = True
@@ -117,6 +117,7 @@ bounce state = state { ballVelocity = (vx', vy')}
 
         -- New velocity
         (vx', vy')
+            | wallCollision (ballLocation state) && barCollision (state) = (-vx * 1.5, -vy * 1.5)
             | wallCollision (ballLocation state) = (vx, -vy * 1.5)
             | barCollision (state) = (-vx * 1.5, vy)
             | otherwise = (vx, vy)
