@@ -33,8 +33,8 @@ data PingPong = Game
     {
         ballLocation :: Location,   -- ball location
         ballVelocity :: Location,   -- ball velocity
-        player1 :: Float,           -- left bar height
-        player2 :: Float,           -- right bar height
+        player1 :: Float,           -- left bar location
+        player2 :: Float,           -- right bar location
         paused :: Bool
     }
     deriving Show -- print values
@@ -63,8 +63,8 @@ design state = pictures[ball, walls, rightBar $ player1 state, leftBar $ player2
 initialState :: PingPong
 initialState = Game
     {
-        ballLocation = (0, 0),
-        ballVelocity = (50, 50),
+        ballLocation = (0, -85),
+        ballVelocity = (50, 0),
         player1 = 0,
         player2 = 0,
         paused = True
@@ -86,19 +86,27 @@ moveBall seconds state = state {ballLocation = (x', y')}
 wallCollision :: Location -> Bool
 wallCollision (_, y) = topCollision || bottomCollision
     where
-        -- Is there a y collision?
         topCollision = y + ballRadius >= limHeight
         bottomCollision = -y + ballRadius >= limHeight
         limHeight = fromIntegral height / 2
 
 -- Bar collision (right or left)
-barCollision :: Location -> Bool
-barCollision (x, _) = rightCollision || leftCollision
+barCollision :: PingPong -> Bool
+barCollision state = rightCollision || leftCollision
     where
-        -- Is there a x collision?
-        rightCollision = x + ballRadius >= limWidth
-        leftCollision = -x + ballRadius >= limWidth
+        (x, y) = ballLocation state
+
+        rightCollision = (x + ballRadius >= limWidth) && playerCollision (player1 state) y
+        leftCollision = (-x + ballRadius >= limWidth) && playerCollision (player2 state) y
         limWidth = barPosition - (barWidth / 2)
+
+-- Bar limits collision
+playerCollision :: Float -> Float -> Bool
+playerCollision player y = upperLimit && lowerLimit
+    where
+        upperLimit = y - ballRadius <= player + halfBar
+        lowerLimit = y + ballRadius >= player - halfBar
+        halfBar = barHeight / 2
 
 -- Wall bounce
 bounce :: PingPong -> PingPong
@@ -110,7 +118,7 @@ bounce state = state { ballVelocity = (vx', vy')}
         -- New velocity
         (vx', vy')
             | wallCollision (ballLocation state) = (vx, -vy * 1.5)
-            | barCollision (ballLocation state) = (-vx * 1.5, vy)
+            | barCollision (state) = (-vx * 1.5, vy)
             | otherwise = (vx, vy)
 
 -- Define window
