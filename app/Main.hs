@@ -28,6 +28,7 @@ ballColor = red
 -- Location data type
 type Location = (Float, Float)
 type Player = (Float, String)   -- bar height and movement
+type Score = (Int, Int)     -- players score
 
 -- Data structure
 data PingPong = Game
@@ -36,14 +37,21 @@ data PingPong = Game
         ballVelocity :: Location,   -- ball velocity
         player1 :: Player,          -- left bar
         player2 :: Player,          -- right bar
+        score :: Score,
         paused :: Bool
     }
     deriving Show -- print values
 
 -- Design
 design :: PingPong -> Picture
-design game = pictures[ball, walls, leftBar $ player1 game, rightBar $ player2 game] -- itens
+design game = pictures[scoreBoard $ score game, ball, walls, leftBar $ player1 game, rightBar $ player2 game] -- itens
     where
+        -- Placar
+        scoreBoard :: Score -> Picture
+        scoreBoard (s1, s2) = translate (-halfWidth) (-halfHeight) $ scale 0.15 0.15 $ color white $ text (show s1 ++  " vs " ++ show s2)
+        halfWidth = fromIntegral width * 0.045
+        halfHeight = fromIntegral height * 0.49
+
         -- Ball
         ball = uncurry translate (ballLocation game) $ color ballColor $ circleSolid ballRadius
 
@@ -68,6 +76,7 @@ initialState = Game
         ballVelocity = (200, 40),
         player1 = (0, "Still"),
         player2 = (0, "Still"),
+        score = (0, 0),
         paused = True
     }
 
@@ -96,8 +105,8 @@ moveBars seconds game = game {player1 = player1', player2 = player2'}
 -- Player movement
 movement :: Player -> Float -> Float
 movement (y, move) seconds
-    | move == "Up" = barsLimit (y + 10) + seconds
-    | move == "Down" = barsLimit (y - 10) + seconds
+    | move == "Up" = barsLimit (y + 300 * seconds)
+    | move == "Down" = barsLimit (y - 300 * seconds)
     | otherwise = y
 
 barsLimit :: Float -> Float
@@ -125,15 +134,17 @@ barCollision game = rightCollision || leftCollision
         xCollision = abs(x) + ballRadius >= limWidth
         limWidth = barPosition - (barWidth / 2)
 
-        rightCollision = xCollision && playerCollision (y1) y
+        -- xCollision
+
+        rightCollision =  xCollision && playerCollision (y1) y
         leftCollision = xCollision && playerCollision (y2) y
 
 -- Bar limits collision
 playerCollision :: Float -> Float -> Bool
-playerCollision y' y = upperLimit && lowerLimit
+playerCollision yn y = upperLimit && lowerLimit
     where
-        upperLimit = y <= y' + halfbar
-        lowerLimit = y >= y' - halfbar
+        upperLimit = y - ballRadius < yn + halfbar
+        lowerLimit = y + ballRadius > yn - halfbar
         halfbar = barHeight / 2
 
 -- Wall bounce
@@ -152,6 +163,18 @@ bounce game = game { ballVelocity = (vx', vy')}
             | barCol = (-vx, vy)
             | otherwise = (vx, vy)
 
+scoring :: PingPong -> PingPong
+scoring game
+    | rightPlayer = initialState {score = (s1, s2 + 1)}
+    | leftPlayer = initialState {score = (s1 + 1, s2)}
+    | otherwise = game
+    where
+        (s1, s2) = score game
+        x = fst $ ballLocation game
+        rightPlayer = x + ballRadius >= limWidth
+        leftPlayer = x - ballRadius <= -limWidth
+        limWidth = barPosition + (barWidth / 2) + 2 * ballRadius
+
 -- Define window
 window :: Display
 window = InWindow name (width, height) (offset, offset)
@@ -164,7 +187,7 @@ main = play window background fps initialState design handleKeys update
 update :: Float -> PingPong -> PingPong
 update seconds game
     | paused game = game
-    | otherwise = bounce $ moveBars seconds $ moveBall seconds game
+    | otherwise = scoring $ bounce $ moveBars seconds $ moveBall seconds game
 
 -- Reset game
 handleKeys :: Event -> PingPong -> PingPong
