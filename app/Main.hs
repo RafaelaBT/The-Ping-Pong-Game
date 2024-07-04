@@ -27,14 +27,15 @@ ballColor = red
 
 -- Location data type
 type Location = (Float, Float)
+type Player = (Float, String)   -- bar height and movement
 
 -- Data structure
 data PingPong = Game
     {
         ballLocation :: Location,   -- ball location
         ballVelocity :: Location,   -- ball velocity
-        player1 :: Float,           -- left bar location
-        player2 :: Float,           -- right bar location
+        player1 :: Player,          -- left bar
+        player2 :: Player,          -- right bar
         paused :: Bool
     }
     deriving Show -- print values
@@ -55,9 +56,9 @@ design game = pictures[ball, walls, leftBar $ player1 game, rightBar $ player2 g
         position = (fromIntegral height / 2)
         
         -- Bars
-        rightBar, leftBar :: Float -> Picture
-        rightBar y1 = translate barPosition y1 $ color barColor $ rectangleSolid barWidth barHeight
-        leftBar y2 = translate (-barPosition) y2 $ color barColor $ rectangleSolid barWidth barHeight
+        rightBar, leftBar :: Player -> Picture
+        rightBar (y1, _) = translate barPosition y1 $ color barColor $ rectangleSolid barWidth barHeight
+        leftBar (y2, _) = translate (-barPosition) y2 $ color barColor $ rectangleSolid barWidth barHeight
 
 -- Initial state
 initialState :: PingPong
@@ -65,8 +66,8 @@ initialState = Game
     {
         ballLocation = (0, 0),
         ballVelocity = (200, 40),
-        player1 = 0,
-        player2 = 0,
+        player1 = (0, "Still"),
+        player2 = (0, "Still"),
         paused = True
     }
 
@@ -82,29 +83,28 @@ moveBall seconds game = game {ballLocation = (x', y')}
         x' = x + vx * seconds
         y' = y + vy * seconds
 
--- Bars moviment
+-- Bars movement
 moveBars :: Float -> PingPong -> PingPong
 moveBars seconds game = game {player1 = player1', player2 = player2'}
     where
-        player1' = barsLimit (player1 game) + seconds
-        player2' = barsLimit (player2 game) + seconds
+        move1 = snd $ player1 game
+        move2 = snd $ player2 game
 
-barMovement :: Float -> String -> Float
-barMovement player move
-    | move == "Up" = upMovement player
-    | otherwise = downMovement player
+        player1' = (movement (player1 game) seconds, move1)
+        player2' = (movement (player2 game) seconds, move2)
 
-upMovement :: Float -> Float
-upMovement player = player + 10
-
-downMovement :: Float -> Float
-downMovement player = player - 10
+-- Player movement
+movement :: Player -> Float -> Float
+movement (y, move) seconds
+    | move == "Up" = barsLimit (y + 10) + seconds
+    | move == "Down" = barsLimit (y - 10) + seconds
+    | otherwise = y
 
 barsLimit :: Float -> Float
-barsLimit player
-    | player >= limit = limit
-    | player <= -limit = -limit
-    | otherwise = player
+barsLimit y
+    | y >= limit = limit
+    | y <= -limit = -limit
+    | otherwise = y
     where
         limit = (fromIntegral height / 2) - (barHeight / 2)
 
@@ -119,19 +119,21 @@ barCollision :: PingPong -> Bool
 barCollision game = rightCollision || leftCollision
     where
         (x, y) = ballLocation game
+        y1 = fst $ player1 game
+        y2 = fst $ player2 game
 
         xCollision = abs(x) + ballRadius >= limWidth
         limWidth = barPosition - (barWidth / 2)
 
-        rightCollision = xCollision && playerCollision (player1 game) y
-        leftCollision = xCollision && playerCollision (player2 game) y
+        rightCollision = xCollision && playerCollision (y1) y
+        leftCollision = xCollision && playerCollision (y2) y
 
 -- Bar limits collision
 playerCollision :: Float -> Float -> Bool
-playerCollision player y = upperLimit && lowerLimit
+playerCollision y' y = upperLimit && lowerLimit
     where
-        upperLimit = y <= player + halfbar
-        lowerLimit = y >= player - halfbar
+        upperLimit = y <= y' + halfbar
+        lowerLimit = y >= y' - halfbar
         halfbar = barHeight / 2
 
 -- Wall bounce
@@ -170,9 +172,16 @@ handleKeys (EventKey (SpecialKey KeySpace) _ _ _) game = game { paused = False }
 handleKeys (EventKey (Char 'p') _ _ _) game = game { paused = True }
 handleKeys (EventKey (Char 'r') _ _ _) _ = initialState
 
-handleKeys (EventKey (Char 'w') _ _ _) game = game { player1 = barMovement (player1 game) "Up"}
-handleKeys (EventKey (Char 's') _ _ _) game = game { player1 = barMovement (player1 game) "Down"}
-handleKeys (EventKey (SpecialKey KeyUp) _ _ _) game = game { player2 = barMovement (player2 game) "Up"}
-handleKeys (EventKey (SpecialKey KeyDown) _ _ _) game = game { player2 = barMovement (player2 game) "Down"}
+handleKeys (EventKey (Char 'w') Down _ _) game = game { player1 = (fst $ player1 game, "Up")}
+handleKeys (EventKey (Char 'w') Up _ _) game = game { player1 = (fst $ player1 game, "Still")}
 
+handleKeys (EventKey (Char 's') Down _ _) game = game { player1 = (fst $ player1 game, "Down")}
+handleKeys (EventKey (Char 's') Up _ _) game = game { player1 = (fst $ player1 game, "Still")}
+
+handleKeys (EventKey (SpecialKey KeyUp) Down _ _) game = game { player2 = (fst $ player2 game, "Up")}
+handleKeys (EventKey (SpecialKey KeyUp) Up _ _) game = game { player2 = (fst $ player2 game, "Still")}
+
+handleKeys (EventKey (SpecialKey KeyDown) Down _ _) game = game { player2 = (fst $ player2 game, "Down")}
+handleKeys (EventKey (SpecialKey KeyDown) Up _ _) game = game { player2 = (fst $ player2 game, "Still")}
+    
 handleKeys _ game = game
