@@ -1,4 +1,4 @@
-module Main (main, PingPong, design, initialState) where
+module Main (main) where
 
 -- Import libraries
 import Graphics.Gloss
@@ -17,7 +17,7 @@ fps = 60
 barWidth, barHeight, barPosition, ballRadius :: Float
 barWidth = 10
 barHeight = 150
-barPosition = 380
+barPosition = 395
 ballRadius = 10
 
 background,barColor, ballColor:: Color
@@ -41,10 +41,10 @@ data PingPong = Game
 
 -- Design
 design :: PingPong -> Picture
-design state = pictures[ball, walls, rightBar $ player1 state, leftBar $ player2 state] -- itens
+design game = pictures[ball, walls, leftBar $ player1 game, rightBar $ player2 game] -- itens
     where
         -- Ball
-        ball = uncurry translate (ballLocation state) $ color ballColor $ circleSolid ballRadius
+        ball = uncurry translate (ballLocation game) $ color ballColor $ circleSolid ballRadius
 
         -- Bottom and top walls
         wall :: Float -> Picture
@@ -64,62 +64,90 @@ initialState :: PingPong
 initialState = Game
     {
         ballLocation = (0, 0),
-        ballVelocity = (50, 50),
+        ballVelocity = (200, 40),
         player1 = 0,
         player2 = 0,
         paused = True
     }
 
--- Ball animation
+-- Ball moviment
 moveBall :: Float -> PingPong -> PingPong
-moveBall seconds state = state {ballLocation = (x', y')}
+moveBall seconds game = game {ballLocation = (x', y')}
     where
         -- Current location and velocity
-        (x, y) = ballLocation state
-        (vx, vy) = ballVelocity state
+        (x, y) = ballLocation game
+        (vx, vy) = ballVelocity game
 
         -- New location and velocity
         x' = x + vx * seconds
         y' = y + vy * seconds
 
+-- Bars moviment
+moveBars :: Float -> PingPong -> PingPong
+moveBars seconds game = game {player1 = player1', player2 = player2'}
+    where
+        player1' = barsLimit (player1 game) + seconds
+        player2' = barsLimit (player2 game) + seconds
+
+barMovement :: Float -> String -> Float
+barMovement player move
+    | move == "Up" = upMovement player
+    | otherwise = downMovement player
+
+upMovement :: Float -> Float
+upMovement player = player + 10
+
+downMovement :: Float -> Float
+downMovement player = player - 10
+
+barsLimit :: Float -> Float
+barsLimit player
+    | player >= limit = limit
+    | player <= -limit = -limit
+    | otherwise = player
+    where
+        limit = (fromIntegral height / 2) - (barHeight / 2)
+
 -- Wall collision (top or bottom)
 wallCollision :: Location -> Bool
-wallCollision (_, y) = topCollision || bottomCollision
+wallCollision (_, y) = abs(y) + ballRadius >= limHeight
     where
-        topCollision = y + ballRadius >= limHeight
-        bottomCollision = -y + ballRadius >= limHeight
         limHeight = fromIntegral height / 2
 
 -- Bar collision (right or left)
 barCollision :: PingPong -> Bool
-barCollision state = rightCollision || leftCollision
+barCollision game = rightCollision || leftCollision
     where
-        (x, y) = ballLocation state
+        (x, y) = ballLocation game
 
-        rightCollision = (x + ballRadius >= limWidth) && playerCollision (player1 state) y
-        leftCollision = (-x + ballRadius >= limWidth) && playerCollision (player2 state) y
+        xCollision = abs(x) + ballRadius >= limWidth
         limWidth = barPosition - (barWidth / 2)
+
+        rightCollision = xCollision && playerCollision (player1 game) y
+        leftCollision = xCollision && playerCollision (player2 game) y
 
 -- Bar limits collision
 playerCollision :: Float -> Float -> Bool
 playerCollision player y = upperLimit && lowerLimit
     where
-        upperLimit = y - ballRadius <= player + halfBar
-        lowerLimit = y + ballRadius >= player - halfBar
-        halfBar = barHeight / 2
+        upperLimit = y <= player + halfbar
+        lowerLimit = y >= player - halfbar
+        halfbar = barHeight / 2
 
 -- Wall bounce
 bounce :: PingPong -> PingPong
-bounce state = state { ballVelocity = (vx', vy')}
+bounce game = game { ballVelocity = (vx', vy')}
     where
         -- Current velocity
-        (vx, vy) = ballVelocity state
+        (vx, vy) = ballVelocity game
+        wallCol = wallCollision (ballLocation game)
+        barCol = barCollision (game)
 
         -- New velocity
         (vx', vy')
-            | wallCollision (ballLocation state) && barCollision (state) = (-vx * 1.5, -vy * 1.5)
-            | wallCollision (ballLocation state) = (vx, -vy * 1.5)
-            | barCollision (state) = (-vx * 1.5, vy)
+            | wallCol && barCol = (-vx, -vy)
+            | wallCol = (vx, -vy)
+            | barCol = (-vx, vy)
             | otherwise = (vx, vy)
 
 -- Define window
@@ -132,13 +160,19 @@ main = play window background fps initialState design handleKeys update
 
 -- Update window
 update :: Float -> PingPong -> PingPong
-update seconds state
-    | paused state = state
-    | otherwise = bounce $ moveBall seconds state
+update seconds game
+    | paused game = game
+    | otherwise = bounce $ moveBars seconds $ moveBall seconds game
 
 -- Reset game
 handleKeys :: Event -> PingPong -> PingPong
-handleKeys (EventKey (Char 'r') _ _ _) state = state { ballLocation = (0, 0), paused = True }
-handleKeys (EventKey (Char 'p') _ _ _) state = state { paused = True }
-handleKeys (EventKey (SpecialKey KeySpace) _ _ _) state = state { paused = False }
-handleKeys _ state = state
+handleKeys (EventKey (SpecialKey KeySpace) _ _ _) game = game { paused = False }
+handleKeys (EventKey (Char 'p') _ _ _) game = game { paused = True }
+handleKeys (EventKey (Char 'r') _ _ _) _ = initialState
+
+handleKeys (EventKey (Char 'w') _ _ _) game = game { player1 = barMovement (player1 game) "Up"}
+handleKeys (EventKey (Char 's') _ _ _) game = game { player1 = barMovement (player1 game) "Down"}
+handleKeys (EventKey (SpecialKey KeyUp) _ _ _) game = game { player2 = barMovement (player2 game) "Up"}
+handleKeys (EventKey (SpecialKey KeyDown) _ _ _) game = game { player2 = barMovement (player2 game) "Down"}
+
+handleKeys _ game = game
