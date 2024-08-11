@@ -41,6 +41,10 @@ library
 executable the-ping-pong-game-exe
   main-is: Main.hs
   other-modules:
+      Game
+      Input
+      Rendering
+      Variables
       Paths_the_ping_pong_game
   autogen-modules:
       Paths_the_ping_pong_game
