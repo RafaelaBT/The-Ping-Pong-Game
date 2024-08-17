@@ -23,4 +23,13 @@ main = do
 update :: Int -> Int -> Float -> Float -> Float -> PingPong -> PingPong
 update halfWidth halfHeight barWidth barHeight seconds game
     | paused game = game
-    | otherwise = scoring halfWidth halfHeight barWidth barHeight $ bounce halfWidth halfHeight barWidth barHeight $ moveBars halfHeight barWidth barHeight seconds $ moveBall seconds game
+    | otherwise = scoring halfWidth halfHeight barWidth barHeight
+                  $ ballPaddleBounce
+                  $ movePaddles
+                  $ moveBall game 
+    where
+        moveBall g = g { gameBall = move (SimpleMove seconds) (gameBall g) }
+        movePaddles g = g { paddles = move (ComplexMove halfHeight barWidth barHeight seconds) (paddles g) }
+        ballPaddleBounce g = g {gameBall = bounce (BallPaddle halfWidth halfHeight barWidth barHeight (paddles g)) (gameBall g)}
+
+ 

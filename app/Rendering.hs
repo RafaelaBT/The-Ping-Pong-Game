@@ -6,9 +6,9 @@ import Graphics.Gloss
 import Game
 import Variables
 
--- Design
+-- Design 2
 design :: Int -> Int -> Float -> Float -> PingPong -> Picture
-design screenWidth screenHeight barWidth barHeight game = pictures [scoreBoard $ score game, ball, walls, leftBar $ player1 game, rightBar $ player2 game]
+design screenWidth screenHeight barWidth barHeight game = pictures [scoreBoard $ score game, ball, walls, leftBar $ p1 $ paddles game, rightBar $ p2 $ paddles game]
     where
         -- Scoreboard
         scoreBoard :: Score -> Picture
@@ -16,9 +16,10 @@ design screenWidth screenHeight barWidth barHeight game = pictures [scoreBoard $
         halfWidth = fromIntegral screenWidth * 0.045
         halfHeight = fromIntegral screenHeight * 0.49
 
-        -- Ball
-        ball = uncurry translate (ballLocation game) $ color ballColor $ circleSolid ballRadius
-
+        
+        --Ball
+        ball = uncurry translate (ballLocation2 $ gameBall game) $ color ballColor $ circleSolid ballRadius
+        
         -- Bottom and top walls
         wall :: Float -> Picture
         wall wallOffset = translate 0 wallOffset $ color background $ rectangleSolid wallWidth 0
@@ -31,3 +32,4 @@ design screenWidth screenHeight barWidth barHeight game = pictures [scoreBoard $
         rightBar, leftBar :: Player -> Picture
         rightBar (y1, _) = translate (screenBarPosition screenWidth) y1 $ color barColor $ rectangleSolid barWidth barHeight
         leftBar (y2, _) = translate (-screenBarPosition screenWidth) y2 $ color barColor $ rectangleSolid barWidth barHeight
+
